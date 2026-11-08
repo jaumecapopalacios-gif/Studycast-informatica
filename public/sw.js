@@ -1,13 +1,10 @@
-const CACHE = 'estudiocs-v3'; // Actualizado a v3 para forzar refresco
+const CACHE = 'estudiocs-v6'; 
 const ASSETS = [
   '/',
   '/index.html',
   '/manifest.json',
   '/icon-192.png',
-  '/icon-512.png',
-  '/icon-512-maskable.png',
-  '/screenshot-wide.png',
-  '/screenshot-narrow.png'
+  '/icon-512.png'
 ];
 
 self.addEventListener('install', e => {
@@ -26,7 +23,7 @@ self.addEventListener('activate', e => {
 
 self.addEventListener('fetch', e => {
   const url = new URL(e.request.url);
-  if (url.pathname.startsWith('/api/')) return;
+  if (url.pathname.startsWith('/api/')) return; 
   if (e.request.method !== 'GET') return;
 
   e.respondWith(

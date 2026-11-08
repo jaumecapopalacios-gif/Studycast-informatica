@@ -5,13 +5,13 @@ const PORT = process.env.PORT || 10000;
 
 app.use(express.json({ limit: '2mb' }));
 
-// 1. IMPORTANTE: Servir el manifest.json con el MIME correcto ANTES de los estáticos
+// Servir el manifest.json con el MIME correcto ANTES de los estáticos
 app.get('/manifest.json', (req, res) => {
   res.type('application/manifest+json');
   res.sendFile(path.join(__dirname, 'public', 'manifest.json'));
 });
 
-// 2. Servir el resto de archivos (imágenes, html, etc.)
+// Servir archivos estáticos
 app.use(express.static(path.join(__dirname, 'public')));
 
 // Proxy para el Chat del Tutor
@@ -29,11 +29,11 @@ app.post('/api/chat', async (req, res) => {
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
-// Proxy para Generar Módulos
+// Proxy para Generar Módulos (Aquí está la ruta que te daba error 404)
 app.post('/api/generate-module', async (req, res) => {
   try {
     const key = process.env.GROQ_API_KEY;
-    if (!key) return res.status(500).json({ error: 'Falta GROQ_API_KEY' });
+    if (!key) return res.status(500).json({ error: 'Falta GROQ_API_KEY en Render' });
     const { lenguaje, titulo, tema } = req.body;
 
     const prompt = `Genera exactamente 10 lecciones para un módulo de "${lenguaje}" nivel principiante titulado "${titulo}".

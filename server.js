@@ -29,7 +29,7 @@ app.post('/api/chat', async (req, res) => {
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
-// Proxy para Generar Módulos (Aquí está la ruta que te daba error 404)
+// Proxy para Generar Módulos (La ruta que está fallando)
 app.post('/api/generate-module', async (req, res) => {
   try {
     const key = process.env.GROQ_API_KEY;

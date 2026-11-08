@@ -5,7 +5,6 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>EstudioCS — Aprende a Programar</title>
 <meta name="theme-color" content="#131f24">
-<meta name="apple-mobile-web-app-capable" content="yes">
 <link rel="manifest" href="/manifest.json">
 <link rel="icon" type="image/png" href="/icon-192.png">
 <style>
@@ -320,14 +319,30 @@ async function abrirModulo(id){
   const el=document.getElementById('vista');
   let cache=getModuloCache(id);
   if(cache){ leccionesModulo=cache; renderModulo(el); return; }
-  el.innerHTML=`<div class="cargando"><div class="spinner"></div><p style="font-weight:700;margin-bottom:.5rem">🤖 Generando módulo con IA...</p><p style="color:#8a9ba3;font-size:.85rem">10 lecciones + 3 preguntas cada una. Tarda ~30-60 segundos.</p></div>`;
+  
+  el.innerHTML=`<div class="cargando"><div class="spinner"></div><p style="font-weight:700;margin-bottom:.5rem">🤖 Generando módulo con IA...</p><p style="color:#8a9ba3;font-size:.85rem">Si el servidor estaba dormido, puede tardar hasta 1 minuto. Por favor, no cierres esta ventana.</p></div>`;
+  
   const cur=CURRICULOS[lengActual];
   const mod=cur.modulos.find(m=>m.id===id);
+  
   try{
-    const r=await fetch('/api/generate-module',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({lenguaje:cur.nombre,titulo:mod.titulo,tema:mod.tema})});
-    if(!r.ok)throw new Error('Error '+r.status);
+    // Usamos la URL absoluta para evitar problemas de rutas
+    const urlAPI = 'https://studycast-informatica-1.onrender.com/api/generate-module';
+    
+    const r=await fetch(urlAPI, {
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({lenguaje:cur.nombre,titulo:mod.titulo,tema:mod.tema})
+    });
+
+    if(!r.ok){
+      const errText = await r.text();
+      throw new Error(`Error ${r.status}: ${errText.slice(0,50)}`);
+    }
+
     const data=await r.json();
-    if(!data.lecciones||data.lecciones.length===0)throw new Error('Sin lecciones');
+    if(!data.lecciones||data.lecciones.length===0)throw new Error('El servidor no devolvió lecciones');
+    
     leccionesModulo=data.lecciones;
     setModuloCache(id,leccionesModulo);
     renderModulo(el);
@@ -481,7 +496,11 @@ async function enviar(){
     const messages=[{role:'system',content:sys}];
     if(e.material)messages.push({role:'system',content:`Material del alumno:\n${e.material}`});
     hist.forEach(m=>messages.push({role:m.role==='user'?'user':'assistant',content:m.text}));
-    const r=await fetch('/api/chat',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({model,messages,temperature:.7,max_tokens:1024})});
+    
+    // URL absoluta para el chat también
+    const urlAPI = 'https://studycast-informatica-1.onrender.com/api/chat';
+    
+    const r=await fetch(urlAPI,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({model,messages,temperature:.7,max_tokens:1024})});
     if(!r.ok)throw new Error('Error '+r.status);
     const data=await r.json();const resp=data.choices?.[0]?.message?.content||'Sin respuesta';
     const e2=cargarEstado();e2.chat.push({role:'model',text:resp});if(e2.chat.length>40)e2.chat=e2.chat.slice(-40);guardarEstado(e2);
@@ -518,7 +537,9 @@ function irTab(t){tab=t;if(t!=='lenguaje'&&t!=='modulo'&&t!=='leccion'){lengActu
 
 document.querySelectorAll('.nav button').forEach(b=>b.addEventListener('click',()=>irTab(b.dataset.tab)));
 render();
-if('serviceWorker'in navigator){window.addEventListener('load',()=>navigator.serviceWorker.register('/sw.js').catch(()=>{}));}
+
+// NO REGISTRAMOS EL SERVICE WORKER POR AHORA PARA EVITAR CACHÉ
+// if('serviceWorker'in navigator){window.addEventListener('load',()=>navigator.serviceWorker.register('/sw.js').catch(()=>{}));}
 </script>
 </body>
 </html>

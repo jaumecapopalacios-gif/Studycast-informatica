@@ -13,14 +13,15 @@ app.use((req, res, next) => {
   next();
 });
 
-app.use(express.static(path.join(__dirname, 'public')));
-
+// IMPORTANTE: Servir el manifest antes de los estáticos para forzar el MIME type correcto
 app.get('/manifest.json', (req, res) => {
   res.type('application/manifest+json');
   res.sendFile(path.join(__dirname, 'public', 'manifest.json'));
 });
 
-// Chat normal
+app.use(express.static(path.join(__dirname, 'public')));
+
+// Proxy para el Chat del Tutor
 app.post('/api/chat', async (req, res) => {
   try {
     const key = process.env.GROQ_API_KEY;
@@ -35,7 +36,7 @@ app.post('/api/chat', async (req, res) => {
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
-// Generador de módulos
+// Proxy para Generar Módulos
 app.post('/api/generate-module', async (req, res) => {
   try {
     const key = process.env.GROQ_API_KEY;
@@ -48,8 +49,8 @@ Tema del módulo: ${tema}.
 Devuelve SOLO un array JSON válido (sin texto antes ni después, sin backticks) con esta estructura exacta:
 [
   {
-    "titulo": "Título corto de la lección (máx 60 caracteres)",
-    "teoria": "Explicación clara en español (4-6 oraciones). Incluye un bloque de código de ejemplo entre triple backtick.",
+    "titulo": "Título corto de la lección",
+    "teoria": "Explicación clara en español. Incluye un bloque de código de ejemplo entre triple backtick.",
     "preguntas": [
       {"q": "Pregunta clara", "opciones": ["a","b","c","d"], "correcta": 0, "explicacion": "Por qué esa es la respuesta correcta"}
     ]
@@ -62,8 +63,7 @@ Reglas:
 - "correcta" es el ÍNDICE (0-3) de la opción correcta.
 - La "explicacion" es una oración clara en español.
 - Toda la teoría y preguntas en español.
-- Progresión pedagógica: de más simple a más complejo dentro del módulo.
-- Código de ejemplo conciso (3-8 líneas).`;
+- Progresión pedagógica: de más simple a más complejo dentro del módulo.`;
 
     const r = await fetch('https://api.groq.com/openai/v1/chat/completions', {
       method: 'POST',
@@ -84,7 +84,6 @@ Reglas:
 
     const data = await r.json();
     let raw = data.choices?.[0]?.message?.content || '[]';
-    // A veces Groq devuelve {"lecciones":[...]} o array suelto
     let parsed;
     try {
       const j = JSON.parse(raw);
@@ -94,11 +93,8 @@ Reglas:
       if (!m) return res.status(500).json({ error: 'Respuesta IA no es JSON válido' });
       parsed = JSON.parse(m[0]);
     }
-
     res.json({ lecciones: parsed });
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
+  } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
 app.listen(PORT, () => console.log('Servidor en puerto ' + PORT));

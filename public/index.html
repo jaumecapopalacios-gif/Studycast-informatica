@@ -95,6 +95,19 @@
   .cargando{text-align:center;padding:3rem 1rem}
   .cargando .spinner{width:40px;height:40px;border:4px solid #2b4048;border-top-color:#58cc02;border-radius:50%;animation:spin 1s linear infinite;margin:0 auto 1rem}
   @keyframes spin{to{transform:rotate(360deg)}}
+
+  /* ===== TERMINAL ===== */
+  .terminal-wrap { display: flex; flex-direction: column; height: calc(100vh - 3rem); background: #000; border-radius: 12px; border: 1px solid #2b4048; font-family: ui-monospace, monospace; overflow: hidden; box-shadow: 0 10px 30px rgba(0,0,0,0.5); }
+  .terminal-header { background: #1f2f36; padding: 0.5rem 1rem; font-size: 0.8rem; color: #8a9ba3; display: flex; gap: 0.5rem; }
+  .terminal-header .dot { width: 10px; height: 10px; border-radius: 50%; background: #ff4b4b; }
+  .terminal-header .dot.yellow { background: #ff9600; }
+  .terminal-header .dot.green { background: #58cc02; }
+  .terminal-output { flex: 1; overflow-y: auto; padding: 1rem; font-size: 0.9rem; color: #ccc; white-space: pre-wrap; line-height: 1.4; }
+  .term-line { margin-bottom: 0.5rem; }
+  .prompt { color: #58cc02; margin-right: 0.5rem; font-weight: 700; }
+  .terminal-input-row { display: flex; padding: 1rem; background: #0a0a0a; border-top: 1px solid #2b4048; }
+  .terminal-input-row input { flex: 1; background: transparent; border: none; color: #fff; font-family: inherit; font-size: 1rem; outline: none; }
+
   @media(max-width:768px){
     .app{grid-template-columns:1fr;padding-bottom:80px}
     .sidebar{position:fixed;bottom:0;left:0;right:0;top:auto;height:70px;flex-direction:row;padding:.5rem;border-right:none;border-top:1px solid #2b4048;align-items:center;justify-content:space-around;z-index:100}
@@ -102,7 +115,7 @@
     .nav{flex-direction:row;flex:1;justify-content:space-around}
     .nav button{flex-direction:column;gap:.2rem;font-size:.7rem;padding:.5rem}
     main{padding:1rem}
-    .tutor-wrap{height:calc(100vh - 140px)}
+    .tutor-wrap, .terminal-wrap{height:calc(100vh - 140px)}
   }
 </style>
 </head>
@@ -113,6 +126,7 @@
     <nav class="nav">
       <button data-tab="home" class="activo">🏠 <span>Inicio</span></button>
       <button data-tab="tutor">💬 <span>Tutor IA</span></button>
+      <button data-tab="terminal">💻 <span>Terminal</span></button>
       <button data-tab="config">⚙️ <span>Config</span></button>
     </nav>
     <div class="racha-mini">🔥 <span id="rachaMini">0</span></div>
@@ -247,6 +261,7 @@ function render(){
   const el=document.getElementById('vista');
   if(tab==='home')renderHome(el);
   else if(tab==='tutor')renderTutor(el);
+  else if(tab==='terminal')renderTerminal(el);
   else if(tab==='config')renderConfig(el);
   else if(tab==='lenguaje')renderLenguaje(el);
   else if(tab==='modulo')renderModulo(el);
@@ -455,6 +470,117 @@ function abrirLenguaje(id){tab='lenguaje';lengActual=id;leccionesModulo=null;ren
 function volverModulo(){tab='modulo';render()}
 function abrirLeccion(idx){tab='leccion';lecIdx=idx;pregIdx=0;aciertos=0;render()}
 
+/* ========== TERMINAL ========== */
+function renderTerminal(el){
+  el.innerHTML=`
+    <div class="terminal-wrap">
+      <div class="terminal-header">
+        <div class="dot"></div><div class="dot yellow"></div><div class="dot green"></div>
+        <span style="margin-left:1rem">EstudioCS - Terminal de Repaso</span>
+      </div>
+      <div class="terminal-output" id="term-out"></div>
+      <div class="terminal-input-row">
+        <span class="prompt">user@estudiocs:~$</span>
+        <input type="text" id="term-in" autocomplete="off" autofocus onkeydown="if(event.key==='Enter'){ejecutarComando(this.value); this.value='';}">
+      </div>
+    </div>`;
+  
+  // Mensaje de bienvenida
+  addTermLine("Bienvenido a la Terminal de Repaso de EstudioCS.");
+  addTermLine("Aquí puedes buscar los términos de las lecciones que ya has completado.");
+  addTermLine("Escribe 'ayuda' para ver los comandos disponibles.\n");
+  
+  setTimeout(()=>document.getElementById('term-in')?.focus(), 100);
+}
+
+function addTermLine(text, isCommand = false) {
+  const out = document.getElementById('term-out');
+  if (!out) return;
+  const div = document.createElement('div');
+  div.className = 'term-line';
+  if (isCommand) {
+    div.innerHTML = `<span class="prompt">user@estudiocs:~$</span> ${text}`;
+  } else {
+    div.innerHTML = text.replace(/\n/g, '<br>');
+  }
+  out.appendChild(div);
+  out.scrollTop = out.scrollHeight;
+}
+
+function ejecutarComando(cmd) {
+  cmd = cmd.trim().toLowerCase();
+  if (!cmd) return;
+  
+  addTermLine(cmd, true);
+
+  if (cmd === 'clear' || cmd === 'limpiar') {
+    document.getElementById('term-out').innerHTML = '';
+    return;
+  }
+
+  if (cmd === 'help' || cmd === 'ayuda') {
+    addTermLine(`
+Comandos disponibles:
+  listar / ls         - Muestra los temas que has aprendido.
+  repasar <termino>   - Muestra la teoría de un tema. (ej. repasar variables)
+  limpiar / clear     - Limpia la pantalla.
+  ayuda / help        - Muestra este mensaje.
+    `);
+    return;
+  }
+
+  if (cmd === 'listar' || cmd === 'ls') {
+    const completadas = estado.completadas;
+    if (completadas.length === 0) {
+      addTermLine("Aún no has completado ninguna lección. ¡Ve a estudiar primero!");
+      return;
+    }
+    let res = "Temas aprendidos:\n";
+    let encontrados = 0;
+    completadas.forEach(idLec => {
+      const modId = idLec.substring(0, idLec.lastIndexOf('-'));
+      const cache = getModuloCache(modId);
+      if (cache) {
+        const idx = parseInt(idLec.split('-l')[1]) - 1;
+        if (cache[idx]) {
+          res += `- [${modId.toUpperCase()}] ${cache[idx].titulo}\n`;
+          encontrados++;
+        }
+      }
+    });
+    addTermLine(res);
+    return;
+  }
+
+  if (cmd.startsWith('repasar ') || cmd.startsWith('cat ')) {
+    const termino = cmd.replace('repasar ', '').replace('cat ', '');
+    if (!termino) {
+      addTermLine("Uso: repasar <termino>");
+      return;
+    }
+    const completadas = estado.completadas;
+    let encontrado = false;
+    completadas.forEach(idLec => {
+      const modId = idLec.substring(0, idLec.lastIndexOf('-'));
+      const cache = getModuloCache(modId);
+      if (cache) {
+        const idx = parseInt(idLec.split('-l')[1]) - 1;
+        if (cache[idx] && cache[idx].titulo.toLowerCase().includes(termino)) {
+          if (!encontrado) {
+            addTermLine(`\n--- ${cache[idx].titulo} ---\n${cache[idx].teoria}\n`);
+            encontrado = true;
+          }
+        }
+      }
+    });
+    if (!encontrado) addTermLine(`No encontré ningún tema aprendido que coincida con '${termino}'.`);
+    return;
+  }
+
+  addTermLine(`Comando no reconocido: '${cmd}'. Escribe 'ayuda' para ver opciones.`);
+}
+
+/* ========== TUTOR ========== */
 function renderTutor(el){
   el.innerHTML=`
     <div class="tutor-wrap">
@@ -535,7 +661,7 @@ function irTab(t){tab=t;if(t!=='lenguaje'&&t!=='modulo'&&t!=='leccion'){lengActu
 document.querySelectorAll('.nav button').forEach(b=>b.addEventListener('click',()=>irTab(b.dataset.tab)));
 render();
 
-// Service Worker desactivado temporalmente para pruebas
+// Service Worker desactivado temporalmente
 // if('serviceWorker'in navigator){window.addEventListener('load',()=>navigator.serviceWorker.register('/sw.js').catch(()=>{}));}
 </script>
 </body>

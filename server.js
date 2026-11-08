@@ -62,7 +62,7 @@ Reglas:
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + key },
       body: JSON.stringify({
-        model: 'llama-3.3-70b-versatile', // Modelo actualizado
+        model: 'openai/gpt-oss-120b', // Modelo actualizado
         messages: [{ role: 'user', content: prompt }],
         temperature: 0.6,
         max_tokens: 8000,

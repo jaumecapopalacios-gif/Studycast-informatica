@@ -326,9 +326,7 @@ async function abrirModulo(id){
   const mod=cur.modulos.find(m=>m.id===id);
   
   try{
-    // Usamos la URL absoluta para evitar problemas de rutas
     const urlAPI = 'https://studycast-informatica-1.onrender.com/api/generate-module';
-    
     const r=await fetch(urlAPI, {
       method:'POST',
       headers:{'Content-Type':'application/json'},
@@ -497,7 +495,6 @@ async function enviar(){
     if(e.material)messages.push({role:'system',content:`Material del alumno:\n${e.material}`});
     hist.forEach(m=>messages.push({role:m.role==='user'?'user':'assistant',content:m.text}));
     
-    // URL absoluta para el chat también
     const urlAPI = 'https://studycast-informatica-1.onrender.com/api/chat';
     
     const r=await fetch(urlAPI,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({model,messages,temperature:.7,max_tokens:1024})});
@@ -538,7 +535,7 @@ function irTab(t){tab=t;if(t!=='lenguaje'&&t!=='modulo'&&t!=='leccion'){lengActu
 document.querySelectorAll('.nav button').forEach(b=>b.addEventListener('click',()=>irTab(b.dataset.tab)));
 render();
 
-// NO REGISTRAMOS EL SERVICE WORKER POR AHORA PARA EVITAR CACHÉ
+// Service Worker desactivado temporalmente para pruebas
 // if('serviceWorker'in navigator){window.addEventListener('load',()=>navigator.serviceWorker.register('/sw.js').catch(()=>{}));}
 </script>
 </body>

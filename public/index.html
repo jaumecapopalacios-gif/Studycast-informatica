@@ -488,7 +488,7 @@ async function enviar(){
   const input=document.getElementById('msgInput');const txt=input.value.trim();if(!txt)return;
   input.value='';const e=cargarEstado();e.chat.push({role:'user',text:txt});guardarEstado(e);cargandoIA=true;pintarChat();
   try{
-    const model=localStorage.getItem('groqModel')||'llama-3.3-70b-versatile';
+    const model=localStorage.getItem('groqModel')||'openai/gpt-oss-120b';
     const hist=e.chat.slice(-16);
     const sys=`Eres un tutor de programación paciente y claro. Respondes SIEMPRE en español. Cuando el alumno te dice que falló una pregunta, analiza por qué se confundió, explica el concepto desde cero y da un ejemplo concreto. Usa markdown. Sé conciso.`;
     const messages=[{role:'system',content:sys}];
@@ -505,7 +505,7 @@ async function enviar(){
 }
 
 function renderConfig(el){
-  const model=localStorage.getItem('groqModel')||'llama-3.3-70b-versatile';
+  const model=localStorage.getItem('groqModel')||'openai/gpt-oss-120b';
   el.innerHTML=`
     <h1>⚙️ Configuración</h1><p class="sub">Ajustes de la app</p>
     <div class="aviso">🔒 La API key está configurada en el servidor. No se guarda en el navegador.</div>
@@ -513,9 +513,9 @@ function renderConfig(el){
       <h2>🤖 Modelo de IA</h2>
       <div class="field"><label>Modelo de Groq</label>
         <select id="modelSel">
-          <option value="llama-3.3-70b-versatile" ${model==='llama-3.3-70b-versatile'?'selected':''}>Llama 3.3 70B (recomendado)</option>
-          <option value="llama-3.1-8b-instant" ${model==='llama-3.1-8b-instant'?'selected':''}>Llama 3.1 8B (rápido)</option>
-          <option value="gemma2-9b-it" ${model==='gemma2-9b-it'?'selected':''}>Gemma 2 9B</option>
+          <option value="openai/gpt-oss-120b" ${model==='openai/gpt-oss-120b'?'selected':''}>GPT-OSS 120B (recomendado)</option>
+          <option value="openai/gpt-oss-20b" ${model==='openai/gpt-oss-20b'?'selected':''}>GPT-OSS 20B (rápido)</option>
+          <option value="qwen/qwen3-32b" ${model==='qwen/qwen3-32b'?'selected':''}>Qwen 3 32B</option>
         </select>
       </div>
       <button class="btn" onclick="guardarModelo()">Guardar</button>

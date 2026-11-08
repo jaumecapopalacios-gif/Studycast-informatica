@@ -3,16 +3,14 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>EstudioCS</title>
+<title>EstudioCS con Groq</title>
 <style>
   * { box-sizing: border-box; margin: 0; padding: 0; }
   body {
     font-family: system-ui, -apple-system, sans-serif;
     background: #131f24; color: #f1f7fb; min-height: 100vh;
   }
-  .app {
-    display: grid; grid-template-columns: 240px 1fr; min-height: 100vh;
-  }
+  .app { display: grid; grid-template-columns: 240px 1fr; min-height: 100vh; }
   /* ===== SIDEBAR ===== */
   .sidebar {
     background: #0e1a1f; padding: 1.5rem 1rem;
@@ -541,9 +539,9 @@ function renderFin(pct){
     </div>`;
 }
 
-/* ========== TUTOR IA ========== */
+/* ========== TUTOR IA (GROQ) ========== */
 function renderTutor(el){
-  const key = localStorage.getItem('geminiKey');
+  const key = localStorage.getItem('groqKey');
   el.innerHTML = `
     <div class="tutor-wrap">
       <div>
@@ -556,7 +554,7 @@ function renderTutor(el){
         <button class="btn sec" style="margin-top:.5rem;font-size:.85rem;padding:.6rem 1rem" onclick="guardarMaterial()">Guardar material</button>
       </details>
       ${!key?`
-        <div class="aviso">⚠️ Falta tu API key de Gemini para usar el tutor.<br><a href="https://aistudio.google.com/apikey" target="_blank" style="color:#ffd8a8">Obtén una gratis aquí</a> y pégala en <b>Config</b>.</div>
+        <div class="aviso">⚠️ Falta tu API key de Groq para usar el tutor.<br><a href="https://console.groq.com/keys" target="_blank" style="color:#ffd8a8">Obtén una gratis aquí</a> y pégala en <b>Config</b>.</div>
       `:''}
       <div class="chat" id="chat"></div>
       <div class="sugerencias">
@@ -644,44 +642,47 @@ async function enviar(){
   pintarChat();
 
   try {
-    const key = localStorage.getItem('geminiKey');
-    if(!key) throw new Error('Falta la API key. Ve a Config.');
+    const key = localStorage.getItem('groqKey');
+    if(!key) throw new Error('Falta la API key de Groq. Ve a Config.');
 
-    let historial = e.chat.slice(-16);
+    const model = localStorage.getItem('groqModel') || 'llama-3.3-70b-versatile';
+    const historial = e.chat.slice(-16);
     const sysPrompt = `Eres un tutor de informática y programación paciente, claro y motivador. 
 Respondes SIEMPRE en español. Das ejemplos de código cortos cuando ayuda. 
 Si el alumno tiene material de estudio, úsalo como contexto. 
 Si la pregunta es ambigua, pide aclaración brevemente. 
 Usa markdown para formatear código y listas. Sé conciso (máx 200 palabras salvo que pidan detalle).`;
 
-    let contenidoPrimero = historial[0].text;
-    if(e.material && historial[0].role === 'user' && historial.length === 1){
-      contenidoPrimero = `Material de estudio del alumno:\n"""\n${e.material}\n"""\n\nPregunta: ${historial[0].text}`;
-    }
-
-    const contents = historial.map((m, i) => ({
-      role: m.role === 'user' ? 'user' : 'model',
-      parts: [{ text: i === 0 ? contenidoPrimero : m.text }]
+    const messages = [{ role:'system', content: sysPrompt }];
+    if(e.material) messages.push({ role:'system', content: `Material de estudio del alumno:\n"""\n${e.material}\n"""` });
+    historial.forEach(m => messages.push({
+      role: m.role === 'user' ? 'user' : 'assistant',
+      content: m.text
     }));
 
-    const res = await fetch(
-      'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=' + key,
-      {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          system_instruction: { parts: [{ text: sysPrompt }] },
-          contents
-        })
-      }
-    );
+    const res = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer ' + key
+      },
+      body: JSON.stringify({
+        model,
+        messages,
+        temperature: 0.7,
+        max_tokens: 1024
+      })
+    });
 
     if(!res.ok){
-      const err = await res.text();
-      throw new Error('Error API: ' + res.status + ' — ' + err.slice(0,150));
+      let extra = '';
+      if(res.status === 401) extra = ' — Key inválida o expirada';
+      if(res.status === 429) extra = ' — Límite de rate, espera 1 minuto';
+      if(res.status === 400) extra = ' — Modelo no disponible o petición inválida';
+      throw new Error(`Error ${res.status}${extra}`);
     }
     const data = await res.json();
-    const respuesta = data.candidates?.[0]?.content?.parts?.[0]?.text || 'No pude generar respuesta.';
+    const respuesta = data.choices?.[0]?.message?.content || 'No pude generar respuesta.';
 
     const e2 = cargarEstado();
     e2.chat.push({ role:'model', text: respuesta });
@@ -689,7 +690,7 @@ Usa markdown para formatear código y listas. Sé conciso (máx 200 palabras sal
     guardarEstado(e2);
   } catch(err){
     const e2 = cargarEstado();
-    e2.chat.push({ role:'model', text:'⚠️ Error: ' + err.message });
+    e2.chat.push({ role:'model', text:'⚠️ ' + err.message });
     guardarEstado(e2);
   } finally {
     cargandoIA = false;
@@ -699,7 +700,8 @@ Usa markdown para formatear código y listas. Sé conciso (máx 200 palabras sal
 
 /* ========== CONFIG ========== */
 function renderConfig(el){
-  const key = localStorage.getItem('geminiKey') || '';
+  const key = localStorage.getItem('groqKey') || '';
+  const model = localStorage.getItem('groqModel') || 'llama-3.3-70b-versatile';
   el.innerHTML = `
     <h1>⚙️ Configuración</h1>
     <p class="sub">API key y ajustes de la app</p>
@@ -709,12 +711,21 @@ function renderConfig(el){
       Úsala solo tú y no compartas esta URL. Para uso multiusuario → Cloudflare Worker proxy.
     </div>
     <div class="card">
-      <h2>🔑 API key de Gemini</h2>
+      <h2>🔑 API key de Groq</h2>
       <div class="field">
-        <label>Pega tu key (gratis en aistudio.google.com/apikey)</label>
-        <input type="password" id="apiKey" value="${key}" placeholder="AIzaSy...">
+        <label>Pega tu key (gratis en console.groq.com/keys)</label>
+        <input type="password" id="apiKey" value="${key}" placeholder="gsk_...">
       </div>
-      <button class="btn" onclick="guardarKey()">Guardar key</button>
+      <div class="field">
+        <label>Modelo</label>
+        <select id="modelSel" style="width:100%;padding:.8rem 1rem;background:#0e1a1f;border:1px solid #2b4048;border-radius:10px;color:#f1f7fb;font-family:inherit;font-size:.9rem">
+          <option value="llama-3.3-70b-versatile" ${model==='llama-3.3-70b-versatile'?'selected':''}>Llama 3.3 70B (recomendado)</option>
+          <option value="llama-3.1-8b-instant" ${model==='llama-3.1-8b-instant'?'selected':''}>Llama 3.1 8B (más rápido)</option>
+          <option value="gemma2-9b-it" ${model==='gemma2-9b-it'?'selected':''}>Gemma 2 9B</option>
+          <option value="deepseek-r1-distill-llama-70b" ${model==='deepseek-r1-distill-llama-70b'?'selected':''}>DeepSeek R1 Distill (razonamiento)</option>
+        </select>
+      </div>
+      <button class="btn" onclick="guardarKey()">Guardar</button>
       ${key?`<button class="btn sec" onclick="borrarKey()" style="margin-left:.5rem">Borrar</button>`:''}
     </div>
     <div class="card">
@@ -725,30 +736,33 @@ function renderConfig(el){
     <div class="card">
       <h2>📖 ¿Cómo obtener la API key?</h2>
       <ol style="color:#8a9ba3;font-size:.9rem;line-height:1.8;padding-left:1.2rem">
-        <li>Entra a <a href="https://aistudio.google.com/apikey" target="_blank" style="color:#58cc02">aistudio.google.com/apikey</a></li>
-        <li>Inicia sesión con tu cuenta de Google</li>
-        <li>Click en <b>"Create API key"</b></li>
-        <li>Copia la key (empieza con AIza...)</li>
-        <li>Pégala arriba y guarda</li>
+        <li>Entra a <a href="https://console.groq.com/keys" target="_blank" style="color:#58cc02">console.groq.com/keys</a></li>
+        <li>Inicia sesión con Google o email</li>
+        <li>Click en <b>"Create API Key"</b></li>
+        <li>Copia la key (empieza con <code>gsk_...</code>)</li>
+        <li>Pégala arriba, elige modelo y guarda</li>
       </ol>
-      <p style="color:#8a9ba3;font-size:.85rem;margin-top:.8rem">Free tier de Gemini: ~1500 requests/día — más que suficiente para uso personal.</p>
+      <p style="color:#8a9ba3;font-size:.85rem;margin-top:.8rem">Free tier de Groq: muy generoso, suficiente para uso diario personal.</p>
     </div>`;
 }
 
 function guardarKey(){
   const v = document.getElementById('apiKey').value.trim();
-  if(!v.startsWith('AIza')){ alert('La key debe empezar con "AIza". Revísala.'); return; }
-  localStorage.setItem('geminiKey', v);
-  alert('✓ Key guardada');
+  if(!v.startsWith('gsk_')){ alert('La key debe empezar con "gsk_". Revísala.'); return; }
+  localStorage.setItem('groqKey', v);
+  localStorage.setItem('groqModel', document.getElementById('modelSel').value);
+  alert('✓ Configuración guardada');
   renderConfig(document.getElementById('vista'));
 }
+
 function borrarKey(){
-  localStorage.removeItem('geminiKey');
+  localStorage.removeItem('groqKey');
   renderConfig(document.getElementById('vista'));
 }
 function reiniciar(){
   if(!confirm('¿Seguro? Se borra todo tu progreso, racha y chat.')) return;
   localStorage.removeItem('estado');
+  localStorage.removeItem('groqKey'); // Opcional: también borra la key
   estado = cargarEstado();
   irTab('home');
 }

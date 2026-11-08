@@ -5,20 +5,13 @@ const PORT = process.env.PORT || 10000;
 
 app.use(express.json({ limit: '2mb' }));
 
-app.use((req, res, next) => {
-  res.header('Access-Control-Allow-Origin', '*');
-  res.header('Access-Control-Allow-Headers', 'Content-Type');
-  res.header('Access-Control-Allow-Methods', 'POST, GET, OPTIONS');
-  if (req.method === 'OPTIONS') return res.sendStatus(200);
-  next();
-});
-
-// IMPORTANTE: Servir el manifest antes de los estáticos para forzar el MIME type correcto
+// Servir manifest.json con el MIME correcto ANTES que los estáticos
 app.get('/manifest.json', (req, res) => {
   res.type('application/manifest+json');
   res.sendFile(path.join(__dirname, 'public', 'manifest.json'));
 });
 
+// Servir archivos estáticos (imágenes, html, css, etc.)
 app.use(express.static(path.join(__dirname, 'public')));
 
 // Proxy para el Chat del Tutor

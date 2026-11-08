@@ -122,7 +122,6 @@
 </div>
 
 <script>
-/* ========== CURRÍCULO: 4 lenguajes × 20 módulos ========== */
 const CURRICULOS = {
   python:{nombre:'Python',emoji:'🐍',desc:'El más usado en ciencia y backend',modulos:[
     {id:'py-m1',titulo:'Introducción y variables',tema:'variables, tipos int/float/str/bool, print, input, comentarios'},
@@ -214,21 +213,16 @@ const CURRICULOS = {
   ]}
 };
 
-/* ========== ESTADO ========== */
 function hoyStr(){return new Date().toISOString().slice(0,10)}
-
 function cargarEstado(){
   let e=JSON.parse(localStorage.getItem('estado')||'null');
   if(!e)e={racha:0,ultimoDia:null,diasActivos:[],completadas:[],chat:[],material:''};
-  const hoy=hoyStr();
-  const ayer=new Date();ayer.setDate(ayer.getDate()-1);
+  const hoy=hoyStr();const ayer=new Date();ayer.setDate(ayer.getDate()-1);
   const ayerS=ayer.toISOString().slice(0,10);
   if(e.ultimoDia&&e.ultimoDia!==hoy&&e.ultimoDia!==ayerS)e.racha=0;
-  localStorage.setItem('estado',JSON.stringify(e));
-  return e;
+  localStorage.setItem('estado',JSON.stringify(e));return e;
 }
 function guardarEstado(e){localStorage.setItem('estado',JSON.stringify(e))}
-
 function actualizarRacha(){
   const e=cargarEstado();const hoy=hoyStr();
   if(e.ultimoDia===hoy)return;
@@ -240,18 +234,13 @@ function actualizarRacha(){
 }
 
 let estado=cargarEstado();
-let tab='home',lengActual=null,modActual=null;
-let leccionesModulo=null; // contenido del módulo abierto
-let lecIdx=0, pregIdx=0, aciertos=0, cargandoIA=false, generandoModulo=false;
-let preguntaFallada=null; // para el tutor
+let tab='home',lengActual=null,modActual=null,leccionesModulo=null;
+let lecIdx=0, pregIdx=0, aciertos=0, cargandoIA=false;
+let preguntaFallada=null;
 
-/* Cache de módulos */
-function getModuloCache(id){
-  try{return JSON.parse(localStorage.getItem('mod_'+id)||'null')}catch(e){return null}
-}
+function getModuloCache(id){try{return JSON.parse(localStorage.getItem('mod_'+id)||'null')}catch(e){return null}}
 function setModuloCache(id,data){localStorage.setItem('mod_'+id,JSON.stringify(data))}
 
-/* ========== RENDER ========== */
 function render(){
   estado=cargarEstado();
   document.getElementById('rachaMini').textContent=estado.racha;
@@ -271,8 +260,7 @@ function renderHome(el){
   const dias=['D','L','M','X','J','V','S'];
   let cal='';
   for(let i=6;i>=0;i--){
-    const d=new Date();d.setDate(d.getDate()-i);
-    const ds=d.toISOString().slice(0,10);
+    const d=new Date();d.setDate(d.getDate()-i);const ds=d.toISOString().slice(0,10);
     const activo=estado.diasActivos.includes(ds);
     cal+=`<div class="dia ${activo?'activo':''} ${i===0?'hoy':''}"><span class="flama">${activo?'🔥':'·'}</span>${dias[d.getDay()]} ${d.getDate()}</div>`;
   }
@@ -293,8 +281,7 @@ function renderHome(el){
           const hc=c.modulos.filter(m=>estado.completadas.filter(x=>x.startsWith(m.id)).length>=10).length;
           const pct=tot?(hc/tot*100):0;
           return `<div class="card-click" onclick="abrirLenguaje('${id}')">
-            <span class="emoji">${c.emoji}</span>
-            <h3>${c.nombre}</h3>
+            <span class="emoji">${c.emoji}</span><h3>${c.nombre}</h3>
             <div class="desc">${c.desc}</div>
             <div class="barra"><div style="width:${pct}%"></div></div>
             <div style="font-size:.75rem;color:#8a9ba3;margin-top:.3rem">${hc}/${tot} módulos</div>
@@ -313,13 +300,11 @@ function renderLenguaje(el){
   const c=CURRICULOS[lengActual];
   el.innerHTML=`
     <button class="volver" onclick="irTab('home')">← Volver</button>
-    <h1>${c.emoji} ${c.nombre}</h1>
-    <p class="sub">${c.desc} · 20 módulos</p>
+    <h1>${c.emoji} ${c.nombre}</h1><p class="sub">${c.desc} · 20 módulos</p>
     ${c.modulos.map((m,i)=>{
       const cache=getModuloCache(m.id);
       const comp=estado.completadas.filter(x=>x.startsWith(m.id)).length;
-      const tot=cache?cache.length:10;
-      const done=comp>=tot;
+      const tot=cache?cache.length:10;const done=comp>=tot;
       return `<div class="leccion-card ${done?'completada':''}" onclick="abrirModulo('${m.id}')">
         <div style="flex:1">
           <div style="font-weight:600">Módulo ${i+1}: ${m.titulo}</div>
@@ -335,21 +320,11 @@ async function abrirModulo(id){
   const el=document.getElementById('vista');
   let cache=getModuloCache(id);
   if(cache){ leccionesModulo=cache; renderModulo(el); return; }
-
-  // Generar con IA
-  el.innerHTML=`<div class="cargando">
-    <div class="spinner"></div>
-    <p style="font-weight:700;margin-bottom:.5rem">🤖 Generando módulo con IA...</p>
-    <p style="color:#8a9ba3;font-size:.85rem">10 lecciones + 3 preguntas cada una. Tarda ~30-60 segundos.</p>
-  </div>`;
-
+  el.innerHTML=`<div class="cargando"><div class="spinner"></div><p style="font-weight:700;margin-bottom:.5rem">🤖 Generando módulo con IA...</p><p style="color:#8a9ba3;font-size:.85rem">10 lecciones + 3 preguntas cada una. Tarda ~30-60 segundos.</p></div>`;
   const cur=CURRICULOS[lengActual];
   const mod=cur.modulos.find(m=>m.id===id);
   try{
-    const r=await fetch('/api/generate-module',{
-      method:'POST',headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({lenguaje:cur.nombre,titulo:mod.titulo,tema:mod.tema})
-    });
+    const r=await fetch('/api/generate-module',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({lenguaje:cur.nombre,titulo:mod.titulo,tema:mod.tema})});
     if(!r.ok)throw new Error('Error '+r.status);
     const data=await r.json();
     if(!data.lecciones||data.lecciones.length===0)throw new Error('Sin lecciones');
@@ -369,8 +344,7 @@ function renderModulo(el){
   const mod=cur.modulos.find(m=>m.id===modActual);
   el.innerHTML=`
     <button class="volver" onclick="irTab('lenguaje')">← Volver</button>
-    <h1>${mod.titulo}</h1>
-    <p class="sub">10 lecciones generadas por IA</p>
+    <h1>${mod.titulo}</h1><p class="sub">10 lecciones generadas por IA</p>
     ${leccionesModulo.map((lec,i)=>{
       const idLec=modActual+'-l'+(i+1);
       const done=estado.completadas.includes(idLec);
@@ -387,7 +361,6 @@ function renderModulo(el){
 function renderLeccion(el){
   const lec=leccionesModulo[lecIdx];
   const p=lec.preguntas[pregIdx];
-  const idLec=modActual+'-l'+(lecIdx+1);
   el.innerHTML=`
     <button class="volver" onclick="volverModulo()">← Salir</button>
     <div class="card">
@@ -407,8 +380,7 @@ function renderTeoria(t){
   let h=t.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
   h=h.replace(/```(\w*)\n([\s\S]*?)```/g,(m,l,c)=>`<pre style="background:#0e1a1f;padding:.8rem;border-radius:8px;overflow-x:auto;font-size:.8rem;margin:.5rem 0"><code>${c.trim()}</code></pre>`);
   h=h.replace(/`([^`\n]+)`/g,'<code>$1</code>');
-  h=h.replace(/\n/g,'<br>');
-  return h;
+  h=h.replace(/\n/g,'<br>');return h;
 }
 
 function responder(idx){
@@ -419,10 +391,7 @@ function responder(idx){
   document.getElementById('op-'+idx).classList.add(ok?'correcta':'incorrecta');
   if(!ok)document.getElementById('op-'+p.correcta).classList.add('correcta');
   if(ok)aciertos++;
-  else{
-    // Guardar para el tutor
-    preguntaFallada={q:p.q,tuRespuesta:p.opciones[idx],correcta:p.opciones[p.correcta],explicacion:p.explicacion||'',contexto:lec.titulo+' / '+CURRICULOS[lengActual].nombre};
-  }
+  else{preguntaFallada={q:p.q,tuRespuesta:p.opciones[idx],correcta:p.opciones[p.correcta],explicacion:p.explicacion||'',contexto:lec.titulo+' / '+CURRICULOS[lengActual].nombre};}
   const expl=p.explicacion?`<span class="expl">💡 ${p.explicacion}</span>`:'';
   const botonTutor=!ok?`<button class="btn sec" onclick="pedirExplicacion()" style="margin-left:.5rem;font-size:.9rem;padding:.7rem 1rem">🎓 Explícame mejor</button>`:'';
   document.getElementById('feedback').innerHTML=`
@@ -436,12 +405,9 @@ function responder(idx){
 function pedirExplicacion(){
   if(!preguntaFallada)return;
   const f=preguntaFallada;
-  const msg=`Estoy estudiando ${f.contexto}. En la pregunta "${f.q}" yo respondí "${f.tuRespuesta}" pero la respuesta correcta es "${f.correcta}". ${f.explicacion?'La explicación dice: '+f.explicacion+'. ':''}¿Puedes explicarme por qué me equivoqué y darme un ejemplo más claro?`;
+  const msg=`Estoy estudiando ${f.contexto}. En la pregunta "${f.q}" yo respondí "${f.tuRespuesta}" pero la correcta es "${f.correcta}". ${f.explicacion?'La explicación dice: '+f.explicacion+'. ':''}¿Puedes explicarme por qué me equivoqué y darme un ejemplo más claro?`;
   irTab('tutor');
-  setTimeout(()=>{
-    const inp=document.getElementById('msgInput');
-    if(inp){inp.value=msg;enviar()}
-  },100);
+  setTimeout(()=>{const inp=document.getElementById('msgInput');if(inp){inp.value=msg;enviar()}},100);
 }
 
 function siguientePregunta(){
@@ -450,10 +416,7 @@ function siguientePregunta(){
   if(pregIdx>=lec.preguntas.length){
     const pct=aciertos/lec.preguntas.length;
     const idLec=modActual+'-l'+(lecIdx+1);
-    if(pct>=0.6){
-      const e=cargarEstado();
-      if(!e.completadas.includes(idLec)){e.completadas.push(idLec);guardarEstado(e);actualizarRacha()}
-    }
+    if(pct>=0.6){const e=cargarEstado();if(!e.completadas.includes(idLec)){e.completadas.push(idLec);guardarEstado(e);actualizarRacha()}}
     renderFin(pct);
   }else render();
 }
@@ -461,8 +424,7 @@ function siguientePregunta(){
 function renderFin(pct){
   const el=document.getElementById('vista');
   const lec=leccionesModulo[lecIdx];
-  const ok=pct>=0.6;
-  const esUltima=lecIdx>=leccionesModulo.length-1;
+  const ok=pct>=0.6;const esUltima=lecIdx>=leccionesModulo.length-1;
   el.innerHTML=`
     <div class="card" style="text-align:center">
       <div style="font-size:3.5rem;margin:1rem 0">${ok?'🎉':'😅'}</div>
@@ -475,105 +437,62 @@ function renderFin(pct){
       </div>
     </div>`;
 }
-
-function siguienteLeccion(){
-  lecIdx++;pregIdx=0;aciertos=0;
-  render();
-}
-
+function siguienteLeccion(){lecIdx++;pregIdx=0;aciertos=0;render()}
 function abrirLenguaje(id){tab='lenguaje';lengActual=id;leccionesModulo=null;render()}
 function volverModulo(){tab='modulo';render()}
 function abrirLeccion(idx){tab='leccion';lecIdx=idx;pregIdx=0;aciertos=0;render()}
 
-/* ========== TUTOR IA ========== */
 function renderTutor(el){
   el.innerHTML=`
     <div class="tutor-wrap">
-      <div><h1>💬 Tutor IA</h1>
-      <p class="sub">Tu tutor lee tus respuestas y te explica donde fallas.</p></div>
+      <div><h1>💬 Tutor IA</h1><p class="sub">Tu tutor lee tus respuestas y te explica donde fallas.</p></div>
       <details class="material-box">
         <summary>📎 Material de estudio (opcional)</summary>
         <textarea id="material" placeholder="Pega apuntes o el tema que estudias...">${estado.material||''}</textarea>
         <button class="btn sec" style="margin-top:.5rem;font-size:.85rem;padding:.6rem 1rem" onclick="guardarMaterial()">Guardar material</button>
       </details>
       <div class="chat" id="chat"></div>
-      <div class="input-row">
-        <input id="msgInput" placeholder="Escribe tu pregunta...">
-        <button onclick="enviar()">➤</button>
-      </div>
+      <div class="input-row"><input id="msgInput" placeholder="Escribe tu pregunta..."><button onclick="enviar()">➤</button></div>
     </div>`;
   pintarChat();
-  document.getElementById('msgInput')?.addEventListener('keydown',e=>{
-    if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();enviar()}
-  });
+  document.getElementById('msgInput')?.addEventListener('keydown',e=>{if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();enviar()}});
 }
 
 function pintarChat(){
   const c=document.getElementById('chat');if(!c)return;
   const e=cargarEstado();
-  if(!e.chat||e.chat.length===0){
-    c.innerHTML=`<div style="text-align:center;color:#8a9ba3;padding:2rem 1rem">
-      <div style="font-size:3rem;margin-bottom:.5rem">🎓</div>
-      <p>Pregúntame cualquier duda de programación.</p>
-      <p style="font-size:.85rem;margin-top:.5rem">Si fallaste una pregunta, usa el botón "Explícame mejor".</p>
-    </div>`;return;
-  }
-  c.innerHTML=e.chat.map(m=>`
-    <div class="msg ${m.role==='user'?'user':'ia'}">
-      <div class="avatar">${m.role==='user'?'👤':'🎓'}</div>
-      <div class="burbuja">${m.role==='user'?escapeHTML(m.text):md(m.text)}</div>
-    </div>`).join('');
+  if(!e.chat||e.chat.length===0){c.innerHTML=`<div style="text-align:center;color:#8a9ba3;padding:2rem 1rem"><div style="font-size:3rem;margin-bottom:.5rem">🎓</div><p>Pregúntame cualquier duda de programación.</p></div>`;return;}
+  c.innerHTML=e.chat.map(m=>`<div class="msg ${m.role==='user'?'user':'ia'}"><div class="avatar">${m.role==='user'?'👤':'🎓'}</div><div class="burbuja">${m.role==='user'?escapeHTML(m.text):md(m.text)}</div></div>`).join('');
   if(cargandoIA)c.innerHTML+=`<div class="msg ia"><div class="avatar">🎓</div><div class="burbuja"><div class="typing"><span></span><span></span><span></span></div></div></div>`;
   c.scrollTop=c.scrollHeight;
 }
-
 function escapeHTML(s){return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')}
-function md(t){
-  let h=escapeHTML(t);
-  h=h.replace(/```(\w*)\n([\s\S]*?)```/g,(m,l,c)=>`<pre><code>${c.trim()}</code></pre>`);
-  h=h.replace(/`([^`\n]+)`/g,'<code>$1</code>');
-  h=h.replace(/\*\*([^*]+)\*\*/g,'<strong>$1</strong>');
-  h=h.replace(/\n/g,'<br>');
-  return h;
-}
-
-function guardarMaterial(){
-  const e=cargarEstado();e.material=document.getElementById('material').value;guardarEstado(e);alert('✓ Guardado')
-}
+function md(t){let h=escapeHTML(t);h=h.replace(/```(\w*)\n([\s\S]*?)```/g,(m,l,c)=>`<pre><code>${c.trim()}</code></pre>`);h=h.replace(/`([^`\n]+)`/g,'<code>$1</code>');h=h.replace(/\*\*([^*]+)\*\*/g,'<strong>$1</strong>');h=h.replace(/\n/g,'<br>');return h;}
+function guardarMaterial(){const e=cargarEstado();e.material=document.getElementById('material').value;guardarEstado(e);alert('✓ Guardado')}
 
 async function enviar(){
   if(cargandoIA)return;
-  const input=document.getElementById('msgInput');const txt=input.value.trim();
-  if(!txt)return;
-  input.value='';
-  const e=cargarEstado();e.chat.push({role:'user',text:txt});guardarEstado(e);
-  cargandoIA=true;pintarChat();
+  const input=document.getElementById('msgInput');const txt=input.value.trim();if(!txt)return;
+  input.value='';const e=cargarEstado();e.chat.push({role:'user',text:txt});guardarEstado(e);cargandoIA=true;pintarChat();
   try{
     const model=localStorage.getItem('groqModel')||'llama-3.3-70b-versatile';
     const hist=e.chat.slice(-16);
-    const sys=`Eres un tutor de programación paciente y claro. Respondes SIEMPRE en español. Cuando el alumno te dice que falló una pregunta, analiza por qué se confundió, explica el concepto desde cero y da un ejemplo concreto. Usa markdown. Sé conciso (máx 250 palabras).`;
+    const sys=`Eres un tutor de programación paciente y claro. Respondes SIEMPRE en español. Cuando el alumno te dice que falló una pregunta, analiza por qué se confundió, explica el concepto desde cero y da un ejemplo concreto. Usa markdown. Sé conciso.`;
     const messages=[{role:'system',content:sys}];
     if(e.material)messages.push({role:'system',content:`Material del alumno:\n${e.material}`});
     hist.forEach(m=>messages.push({role:m.role==='user'?'user':'assistant',content:m.text}));
     const r=await fetch('/api/chat',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({model,messages,temperature:.7,max_tokens:1024})});
     if(!r.ok)throw new Error('Error '+r.status);
-    const data=await r.json();
-    const resp=data.choices?.[0]?.message?.content||'Sin respuesta';
-    const e2=cargarEstado();e2.chat.push({role:'model',text:resp});
-    if(e2.chat.length>40)e2.chat=e2.chat.slice(-40);
-    guardarEstado(e2);
-  }catch(err){
-    const e2=cargarEstado();e2.chat.push({role:'model',text:'⚠️ '+err.message});guardarEstado(e2);
-  }finally{cargandoIA=false;pintarChat()}
+    const data=await r.json();const resp=data.choices?.[0]?.message?.content||'Sin respuesta';
+    const e2=cargarEstado();e2.chat.push({role:'model',text:resp});if(e2.chat.length>40)e2.chat=e2.chat.slice(-40);guardarEstado(e2);
+  }catch(err){const e2=cargarEstado();e2.chat.push({role:'model',text:'⚠️ '+err.message});guardarEstado(e2);}finally{cargandoIA=false;pintarChat()}
 }
 
-/* ========== CONFIG ========== */
 function renderConfig(el){
   const model=localStorage.getItem('groqModel')||'llama-3.3-70b-versatile';
   el.innerHTML=`
-    <h1>⚙️ Configuración</h1>
-    <p class="sub">Ajustes de la app</p>
-    <div class="aviso">🔒 La API key está configurada en el servidor (Render → Environment). No se guarda en el navegador.</div>
+    <h1>⚙️ Configuración</h1><p class="sub">Ajustes de la app</p>
+    <div class="aviso">🔒 La API key está configurada en el servidor. No se guarda en el navegador.</div>
     <div class="card">
       <h2>🤖 Modelo de IA</h2>
       <div class="field"><label>Modelo de Groq</label>
@@ -593,25 +512,13 @@ function renderConfig(el){
     </div>`;
 }
 function guardarModelo(){localStorage.setItem('groqModel',document.getElementById('modelSel').value);alert('✓ Guardado')}
-function reiniciar(){
-  if(!confirm('¿Borrar todo?'))return;
-  Object.keys(localStorage).forEach(k=>{if(k.startsWith('mod_')||k==='estado')localStorage.removeItem(k)});
-  estado=cargarEstado();irTab('home');
-}
-function borrarModulos(){
-  if(!confirm('¿Borrar módulos generados? Se regenerarán al abrirlos.'))return;
-  Object.keys(localStorage).forEach(k=>{if(k.startsWith('mod_'))localStorage.removeItem(k)});
-  alert('✓ Borrados');
-}
-
+function reiniciar(){if(!confirm('¿Borrar todo?'))return;Object.keys(localStorage).forEach(k=>{if(k.startsWith('mod_')||k==='estado')localStorage.removeItem(k)});estado=cargarEstado();irTab('home')}
+function borrarModulos(){if(!confirm('¿Borrar módulos generados?'))return;Object.keys(localStorage).forEach(k=>{if(k.startsWith('mod_'))localStorage.removeItem(k)});alert('✓ Borrados')}
 function irTab(t){tab=t;if(t!=='lenguaje'&&t!=='modulo'&&t!=='leccion'){lengActual=null;modActual=null;leccionesModulo=null}render()}
 
 document.querySelectorAll('.nav button').forEach(b=>b.addEventListener('click',()=>irTab(b.dataset.tab)));
 render();
-
-if('serviceWorker'in navigator){
-  window.addEventListener('load',()=>navigator.serviceWorker.register('/sw.js').catch(()=>{}));
-}
+if('serviceWorker'in navigator){window.addEventListener('load',()=>navigator.serviceWorker.register('/sw.js').catch(()=>{}));}
 </script>
 </body>
 </html>

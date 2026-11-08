@@ -1,4 +1,4 @@
-const CACHE = 'estudiocs-v9';
+const CACHE = 'estudiocs-v12';
 const ASSETS = [
   '/',
   '/index.html',
@@ -23,7 +23,7 @@ self.addEventListener('activate', e => {
 
 self.addEventListener('fetch', e => {
   const url = new URL(e.request.url);
-  // IMPORTANTE: Si es la API o no es GET, dejar pasar directo a la red (no interceptar)
+  // Si es la API o no es GET, dejar pasar directo a la red (No interceptar)
   if (url.pathname.startsWith('/api/') || e.request.method !== 'GET') {
     return; 
   }

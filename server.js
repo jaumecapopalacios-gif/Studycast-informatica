@@ -3,7 +3,7 @@ const path = require('path');
 const app = express();
 const PORT = process.env.PORT || 10000;
 
-app.use(express.json({ limit: '1mb' }));
+app.use(express.json({ limit: '2mb' }));
 
 app.use((req, res, next) => {
   res.header('Access-Control-Allow-Origin', '*');
@@ -20,10 +20,11 @@ app.get('/manifest.json', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'manifest.json'));
 });
 
+// Chat normal
 app.post('/api/chat', async (req, res) => {
   try {
     const key = process.env.GROQ_API_KEY;
-    if (!key) return res.status(500).json({ error: 'Falta GROQ_API_KEY en Render' });
+    if (!key) return res.status(500).json({ error: 'Falta GROQ_API_KEY' });
     const r = await fetch('https://api.groq.com/openai/v1/chat/completions', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + key },
@@ -31,6 +32,70 @@ app.post('/api/chat', async (req, res) => {
     });
     const data = await r.json();
     res.status(r.status).json(data);
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+// Generador de módulos
+app.post('/api/generate-module', async (req, res) => {
+  try {
+    const key = process.env.GROQ_API_KEY;
+    if (!key) return res.status(500).json({ error: 'Falta GROQ_API_KEY' });
+    const { lenguaje, titulo, tema } = req.body;
+
+    const prompt = `Genera exactamente 10 lecciones para un módulo de "${lenguaje}" nivel principiante titulado "${titulo}".
+Tema del módulo: ${tema}.
+
+Devuelve SOLO un array JSON válido (sin texto antes ni después, sin backticks) con esta estructura exacta:
+[
+  {
+    "titulo": "Título corto de la lección (máx 60 caracteres)",
+    "teoria": "Explicación clara en español (4-6 oraciones). Incluye un bloque de código de ejemplo entre triple backtick.",
+    "preguntas": [
+      {"q": "Pregunta clara", "opciones": ["a","b","c","d"], "correcta": 0, "explicacion": "Por qué esa es la respuesta correcta"}
+    ]
+  }
+]
+
+Reglas:
+- Cada lección debe tener EXACTAMENTE 3 preguntas.
+- Cada pregunta tiene EXACTAMENTE 4 opciones.
+- "correcta" es el ÍNDICE (0-3) de la opción correcta.
+- La "explicacion" es una oración clara en español.
+- Toda la teoría y preguntas en español.
+- Progresión pedagógica: de más simple a más complejo dentro del módulo.
+- Código de ejemplo conciso (3-8 líneas).`;
+
+    const r = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + key },
+      body: JSON.stringify({
+        model: 'llama-3.3-70b-versatile',
+        messages: [{ role: 'user', content: prompt }],
+        temperature: 0.6,
+        max_tokens: 8000,
+        response_format: { type: 'json_object' }
+      })
+    });
+
+    if (!r.ok) {
+      const t = await r.text();
+      return res.status(r.status).json({ error: t.slice(0, 200) });
+    }
+
+    const data = await r.json();
+    let raw = data.choices?.[0]?.message?.content || '[]';
+    // A veces Groq devuelve {"lecciones":[...]} o array suelto
+    let parsed;
+    try {
+      const j = JSON.parse(raw);
+      parsed = Array.isArray(j) ? j : (j.lecciones || j.lessons || []);
+    } catch (e) {
+      const m = raw.match(/\[[\s\S]*\]/);
+      if (!m) return res.status(500).json({ error: 'Respuesta IA no es JSON válido' });
+      parsed = JSON.parse(m[0]);
+    }
+
+    res.json({ lecciones: parsed });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }

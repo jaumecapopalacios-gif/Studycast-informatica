@@ -5,13 +5,13 @@ const PORT = process.env.PORT || 10000;
 
 app.use(express.json({ limit: '2mb' }));
 
-// Servir manifest.json con el MIME correcto ANTES que los estáticos
+// 1. IMPORTANTE: Servir el manifest.json con el MIME correcto ANTES de los estáticos
 app.get('/manifest.json', (req, res) => {
   res.type('application/manifest+json');
   res.sendFile(path.join(__dirname, 'public', 'manifest.json'));
 });
 
-// Servir archivos estáticos (imágenes, html, css, etc.)
+// 2. Servir el resto de archivos (imágenes, html, etc.)
 app.use(express.static(path.join(__dirname, 'public')));
 
 // Proxy para el Chat del Tutor

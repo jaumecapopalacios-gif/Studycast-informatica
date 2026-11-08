@@ -16,7 +16,6 @@ app.use(express.static(path.join(__dirname, 'public')));
 
 // Proxy para el Chat del Tutor
 app.post('/api/chat', async (req, res) => {
-  console.log('💬 [LOG] Petición recibida en /api/chat');
   try {
     const key = process.env.GROQ_API_KEY;
     if (!key) return res.status(500).json({ error: 'Falta GROQ_API_KEY' });
@@ -32,15 +31,10 @@ app.post('/api/chat', async (req, res) => {
 
 // Proxy para Generar Módulos
 app.post('/api/generate-module', async (req, res) => {
-  console.log('🧠 [LOG] Petición recibida en /api/generate-module');
   try {
     const key = process.env.GROQ_API_KEY;
-    if (!key) {
-      console.log('❌ [LOG] Error: Falta la API KEY');
-      return res.status(500).json({ error: 'Falta GROQ_API_KEY en Render' });
-    }
+    if (!key) return res.status(500).json({ error: 'Falta GROQ_API_KEY en Render' });
     const { lenguaje, titulo, tema } = req.body;
-    console.log(`📚 [LOG] Generando módulo: ${titulo}`);
 
     const prompt = `Genera exactamente 10 lecciones para un módulo de "${lenguaje}" nivel principiante titulado "${titulo}".
 Tema del módulo: ${tema}.
@@ -68,7 +62,7 @@ Reglas:
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + key },
       body: JSON.stringify({
-        model: 'llama-3.3-70b-versatile',
+        model: 'llama-3.3-70b-versatile', // Modelo actualizado
         messages: [{ role: 'user', content: prompt }],
         temperature: 0.6,
         max_tokens: 8000,
@@ -77,7 +71,6 @@ Reglas:
     });
 
     if (!r.ok) {
-      console.log('❌ [LOG] Error de Groq:', r.status);
       const t = await r.text();
       return res.status(r.status).json({ error: t.slice(0, 200) });
     }
@@ -93,12 +86,8 @@ Reglas:
       if (!m) return res.status(500).json({ error: 'Respuesta IA no es JSON válido' });
       parsed = JSON.parse(m[0]);
     }
-    console.log('✅ [LOG] Módulo generado con éxito');
     res.json({ lecciones: parsed });
-  } catch (err) { 
-    console.log('❌ [LOG] Error en el servidor:', err.message);
-    res.status(500).json({ error: err.message }); 
-  }
+  } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
 app.listen(PORT, () => console.log('Servidor en puerto ' + PORT));
